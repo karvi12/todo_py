@@ -1,11 +1,36 @@
 import sys
-
+import json
 from click import command
 
 # Глобальные списки
 tasks = []
 tasks_in_progress = []
 tasks_done = []
+
+DATA_FILE = "tasks.json"
+
+def load_data():
+    global tasks, tasks_in_progress, tasks_done
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            tasks[:] = data.get("tasks", [])
+            tasks_in_progress[:] = data.get("tasks_in_progress", [])
+            tasks_done[:] = data.get("tasks_done", [])
+    except FileNotFoundError:
+        tasks[:] = []
+        tasks_in_progress[:] = []
+        tasks_done[:] = []
+
+
+def save_data():
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump({
+            "tasks": tasks,
+            "tasks_in_progress": tasks_in_progress,
+            "tasks_done": tasks_done
+        }, f, ensure_ascii=False, indent=4)
+
 
 def add_task(name: str):
     """
@@ -14,6 +39,7 @@ def add_task(name: str):
     tasks.append(name)
     print(name)
     print(f'Задание успешно добавлено! (ID:{len(tasks)-1})\n')
+    save_data()
 
 def show_tasks():
     """
@@ -21,7 +47,7 @@ def show_tasks():
     """
     print("Список заданий, которые нужно выполнить:")
     for i, task in enumerate(tasks):
-        print(f"{i}: {task}")
+        print(f"ID {i}: {task}")
     print("\n")
 
 def show_tasks_done():
@@ -30,7 +56,7 @@ def show_tasks_done():
     """
     print("Список выполненных заданий:")
     for i, task in enumerate(tasks_done):
-        print(f"{i}: {task}")
+        print(f"ID {i}: {task}")
     print("\n")
 
 def show_tasks_in_progress():
@@ -39,7 +65,7 @@ def show_tasks_in_progress():
     """
     print("Список заданий в процессе выполнения:")
     for i, task in enumerate(tasks_in_progress):
-        print(f"{i}: {task}")
+        print(f"ID {i}: {task}")
     print("\n")
 
 def mark_in_progress(index: int):
@@ -51,6 +77,7 @@ def mark_in_progress(index: int):
         print(f'Задание под индексом {index} взято на выполнение!\n')
     else:
         print("Неверный индекс!")
+    save_data()
 
 def mark_done(index: int):
     """
@@ -61,6 +88,7 @@ def mark_done(index: int):
         print(f'Задание под номером {index} выполнено!\n')
     else:
         print("Неверный индекс!")
+    save_data()
 
 def update_task(index: int, task: str):
     """
@@ -71,6 +99,7 @@ def update_task(index: int, task: str):
         print(f'Задание под номером {index} обновлено!\n')
     else:
         print("Неверный индекс!")
+    save_data()
 
 def delete_task(index: int):
     """
@@ -81,6 +110,7 @@ def delete_task(index: int):
         print(f'Задание под номером {index} удалено!\n')
     else:
         print("Неверный индекс!")
+    save_data()
 
 def help():
     print("""
@@ -98,65 +128,67 @@ def help():
 
 
 def main():
-    print("Добро пожаловать в мой ToDo!")
-    help()
+    load_data()
+    if len(sys.argv) < 2:
+        print("Используйте 'help', чтобы посмотреть команды")
+        return
 
-    while True:
-        user_input = input(">").strip()
+    command = sys.argv[1]
+    args = sys.argv[2:]
 
-        if not user_input:
-            continue
-
-        parts = user_input.split(maxsplit=1)
-        command = parts[0]
-        args_str = parts[1] if len(parts) > 1 else ""
-
-        if command == "exit":
-            print("Выход из программы")
-            break
-
-        elif command == "add":
-            add_task(args_str)
-        elif command == "show":
-            show_tasks()
-        elif command == "show-progress":
-            show_tasks_in_progress()
-        elif command == "show-done":
-            show_tasks_done()
-        elif command == "progress":
+    if command == "add":
+        if len(args) == 1:
+            add_task(args[0])
+        else:
+            print("Использование: add \"название задачи\"")
+    elif command == "show":
+        show_tasks()
+    elif command == "show-progress":
+        show_tasks_in_progress()
+    elif command == "show-done":
+        show_tasks_done()
+    elif command == "progress":
+        if len(args) == 1:
             try:
-                index = int(args_str)
+                index = int(args[0])
                 mark_in_progress(index)
             except ValueError:
                 print("Индекс должен быть числом.")
-        elif command == "done":
+        else:
+            print("Использование: progress <индекс>")
+    elif command == "done":
+        if len(args) == 1:
             try:
-                index = int(args_str)
+                index = int(args[0])
                 mark_done(index)
             except ValueError:
                 print("Индекс должен быть числом.")
-        elif command == "update":
-            args = args_str.split(maxsplit=1)
-            if len(args) == 2:
-                try:
-                    index = int(args[0])
-                    new_name = args[1]
-                    update_task(index, new_name)
-                except ValueError:
-                    print("Индекс должен быть числом.")
-            else:
-                print("Использование: update <индекс> \"новое название\"")
-        elif command == "delete":
+        else:
+            print("Использование: done <индекс>")
+    elif command == "update":
+        if len(args) == 2:
             try:
-                index = int(args_str)
+                index = int(args[0])
+                new_name = args[1]
+                update_task(index, new_name)
+            except ValueError:
+                print("Индекс должен быть числом.")
+        else:
+            print("Использование: update <индекс> \"новое название\"")
+    elif command == "delete":
+        if len(args) == 1:
+            try:
+                index = int(args[0])
                 delete_task(index)
             except ValueError:
                 print("Индекс должен быть числом.")
-        elif command == "help":
-            help()
         else:
-            print(f"Неизвестная команда: {command}. Введите 'help', чтобы посмотреть список команд.")
-
+            print("Использование: delete <индекс>")
+    elif command == "help":
+        help()
+    else:
+        print(f"Неизвестная команда: {command}")
+        help()
 
 if __name__ == "__main__":
     main()
